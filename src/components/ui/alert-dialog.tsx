@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface AlertDialogProps {
   open: boolean;
@@ -36,8 +37,14 @@ export function AlertDialog({
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") onOpenChange(false);
     };
-    if (open) document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
+    if (open) {
+      document.addEventListener("keydown", handleEscape);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "";
+    };
   }, [open, onOpenChange]);
 
   if (!open) return null;
@@ -47,9 +54,12 @@ export function AlertDialog({
       <div
         ref={dialogRef}
         role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="alert-title"
+        aria-describedby="alert-desc"
         tabIndex={-1}
         className={cn(
-          "w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95",
+          "w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 outline-none",
           "bg-card"
         )}
       >
@@ -59,33 +69,30 @@ export function AlertDialog({
             variant === "danger" ? "bg-destructive" : "bg-primary"
           )}
         >
-          <h3 className="font-bold text-xl">{title}</h3>
+          <h3 id="alert-title" className="font-bold text-xl">{title}</h3>
         </div>
         <div className="p-6">
-          <p className="text-foreground text-lg mb-8 leading-relaxed font-medium">{message}</p>
+          <p id="alert-desc" className="text-foreground text-lg mb-8 leading-relaxed font-medium">
+            {message}
+          </p>
           <div className="flex justify-end gap-3">
             {onConfirm && (
-              <button
+              <Button
+                variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="px-5 py-2.5 rounded-xl text-foreground bg-secondary hover:bg-accent font-bold transition"
               >
                 {cancelLabel}
-              </button>
+              </Button>
             )}
-            <button
+            <Button
               onClick={() => {
                 onConfirm?.();
                 onOpenChange(false);
               }}
-              className={cn(
-                "px-6 py-2.5 rounded-xl text-white font-bold transition shadow-md",
-                variant === "danger"
-                  ? "bg-destructive hover:bg-destructive/90"
-                  : "bg-primary hover:opacity-90"
-              )}
+              variant={variant === "danger" ? "destructive" : "default"}
             >
               {onConfirm ? confirmLabel : "حسناً"}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

@@ -3,9 +3,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth-utils";
+import { DepartmentSchema, UpdateDepartmentSchema } from "@/lib/schemas";
+import type { z } from "zod";
 
 export async function getDepartments() {
   const supabase = await createClient();
+  await requireAuth();
   const { data, error } = await supabase
     .from("departments")
     .select("*")
@@ -14,11 +17,10 @@ export async function getDepartments() {
   return data;
 }
 
-export async function createDepartment(formData: FormData) {
+export async function createDepartment(input: z.infer<typeof DepartmentSchema>) {
+  const validated = DepartmentSchema.parse(input);
   const supabase = await createClient();
   await requireAuth();
-  const name = formData.get("name") as string;
-  if (!name?.trim() || name.trim().length > 200) throw new Error("اسم القسم مطلوب");
 
   const { data: org } = await supabase
     .from("organizations")
@@ -29,23 +31,21 @@ export async function createDepartment(formData: FormData) {
 
   const { error } = await supabase.from("departments").insert({
     organization_id: org.id,
-    name: name.trim(),
+    name: validated.name.trim(),
   });
   if (error) throw new Error(error.message);
   revalidatePath("/departments");
 }
 
-export async function updateDepartment(formData: FormData) {
+export async function updateDepartment(input: z.infer<typeof UpdateDepartmentSchema>) {
+  const validated = UpdateDepartmentSchema.parse(input);
   const supabase = await createClient();
   await requireAuth();
-  const id = formData.get("id") as string;
-  const name = formData.get("name") as string;
-  if (!id || !name?.trim() || name.trim().length > 200) throw new Error("بيانات غير صالحة");
 
   const { error } = await supabase
     .from("departments")
-    .update({ name: name.trim() })
-    .eq("id", id);
+    .update({ name: validated.name.trim() })
+    .eq("id", validated.id);
   if (error) throw new Error(error.message);
   revalidatePath("/departments");
 }

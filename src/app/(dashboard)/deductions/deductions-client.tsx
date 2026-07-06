@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Department } from "@/types/database";
 import type { VehicleWithRelations } from "@/lib/actions/vehicles";
 import type { DeductionWithRelations } from "@/lib/actions/deductions";
-import { createDeduction, deleteDeduction } from "@/lib/actions/deductions";
+import { getDeductions, createDeduction, deleteDeduction } from "@/lib/actions/deductions";
 import { currentMonthStr } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, CircleMinus } from "lucide-react";
 
 interface Props {
-  deductions: DeductionWithRelations[];
+  initialDeductions: DeductionWithRelations[];
   vehicles: VehicleWithRelations[];
   departments: Department[];
 }
@@ -29,8 +30,8 @@ function formatAmount(n: number) {
   return n.toLocaleString("ar-EG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export function DeductionsClient({ deductions: initial, vehicles, departments }: Props) {
-  const [deductions, setDeductions] = useState(initial);
+export function DeductionsClient({ initialDeductions, vehicles, departments }: Props) {
+  const queryClient = useQueryClient();
   const [filterMonth, setFilterMonth] = useState(currentMonthStr());
   const [showAdd, setShowAdd] = useState(false);
   const [deleting, setDeleting] = useState<DeductionWithRelations | null>(null);
@@ -40,35 +41,41 @@ export function DeductionsClient({ deductions: initial, vehicles, departments }:
   const [formReason, setFormReason] = useState("");
   const [formMonth, setFormMonth] = useState(currentMonthStr());
 
-  const handleFilter = async () => {
-    const { getDeductions } = await import("@/lib/actions/deductions");
-    setDeductions(await getDeductions(filterMonth));
+  const { data: deductions } = useQuery({
+    queryKey: ["deductions", filterMonth],
+    queryFn: () => {
+      if (filterMonth) return getDeductions(filterMonth);
+      return getDeductions();
+    },
+    initialData: initialDeductions,
+  });
+
+  const handleFilter = () => {
+    queryClient.invalidateQueries({ queryKey: ["deductions", filterMonth] });
   };
 
   const handleAdd = async () => {
-    const fd = new FormData();
-    fd.set("vehicle_id", formVehicle);
-    fd.set("department_id", formDepartment);
-    fd.set("amount", formAmount);
-    fd.set("reason", formReason);
-    fd.set("month", formMonth);
-    await createDeduction(fd);
+    await createDeduction({
+      vehicle_id: formVehicle || null,
+      department_id: formDepartment || null,
+      amount: Number(formAmount),
+      reason: formReason,
+      month: formMonth,
+    });
     setShowAdd(false);
     setFormVehicle("");
     setFormDepartment("");
     setFormAmount("");
     setFormReason("");
     setFormMonth(currentMonthStr());
-    const { getDeductions } = await import("@/lib/actions/deductions");
-    setDeductions(await getDeductions(filterMonth));
+    queryClient.invalidateQueries({ queryKey: ["deductions"] });
   };
 
   const handleDelete = async () => {
     if (!deleting) return;
     await deleteDeduction(deleting.id);
     setDeleting(null);
-    const { getDeductions } = await import("@/lib/actions/deductions");
-    setDeductions(await getDeductions(filterMonth));
+    queryClient.invalidateQueries({ queryKey: ["deductions", filterMonth] });
   };
 
   const total = deductions.reduce((sum, d) => sum + Number(d.amount), 0);
@@ -104,11 +111,7 @@ export function DeductionsClient({ deductions: initial, vehicles, departments }:
           <Button
             variant="ghost"
             size="sm"
-            onClick={async () => {
-              setFilterMonth("");
-              const { getDeductions } = await import("@/lib/actions/deductions");
-              setDeductions(await getDeductions());
-            }}
+            onClick={() => setFilterMonth("")}
           >
             إلغاء التصفية
           </Button>

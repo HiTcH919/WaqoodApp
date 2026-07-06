@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth-utils";
+import { OdometerReadingSchema } from "@/lib/schemas";
+import type { z } from "zod";
 
 export async function getOdometerReadings(month: string) {
   const supabase = await createClient();
@@ -15,18 +17,10 @@ export async function getOdometerReadings(month: string) {
   return data ?? [];
 }
 
-export async function upsertOdometerReading(formData: FormData) {
+export async function upsertOdometerReading(input: z.infer<typeof OdometerReadingSchema>) {
+  const validated = OdometerReadingSchema.parse(input);
   const supabase = await createClient();
   await requireAuth();
-  const vehicle_id = formData.get("vehicle_id") as string;
-  const month = formData.get("month") as string;
-  const start_reading = parseFloat(formData.get("start_reading") as string);
-  const end_reading = parseFloat(formData.get("end_reading") as string);
-  const distance = formData.get("distance")
-    ? parseFloat(formData.get("distance") as string)
-    : null;
-
-  if (!vehicle_id || !month) throw new Error("بيانات غير صالحة");
 
   const { data: org } = await supabase
     .from("organizations")
@@ -34,14 +28,16 @@ export async function upsertOdometerReading(formData: FormData) {
     .limit(1)
     .single();
 
+  if (!org) throw new Error("لا توجد منظمة مرتبطة");
+
   const { error } = await supabase.from("odometer_readings").upsert(
     {
-      organization_id: org!.id,
-      vehicle_id,
-      month,
-      start_reading: start_reading || 0,
-      end_reading: end_reading || 0,
-      distance,
+      organization_id: org.id,
+      vehicle_id: validated.vehicle_id,
+      month: validated.month,
+      start_reading: validated.start_reading,
+      end_reading: validated.end_reading,
+      distance: validated.distance ?? null,
     },
     { onConflict: "vehicle_id, month" }
   );

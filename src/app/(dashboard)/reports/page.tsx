@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { currentMonthStr } from "@/lib/constants";
+import { requireAuth } from "@/lib/auth-utils";
 import { getSettings } from "@/lib/actions/settings";
 import { ReportsClient } from "./reports-client";
 
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export default async function ReportsPage({ searchParams }: Props) {
+  await requireAuth();
   const { month } = await searchParams;
   const selectedMonth = month || currentMonthStr();
   const supabase = await createClient();

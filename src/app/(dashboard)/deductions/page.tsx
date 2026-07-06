@@ -11,7 +11,7 @@ export default async function DeductionsPage() {
   ]);
   return (
     <DeductionsClient
-      deductions={deductions}
+      initialDeductions={deductions}
       vehicles={vehicles}
       departments={departments}
     />

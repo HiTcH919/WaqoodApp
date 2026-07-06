@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { currentMonthStr } from "@/lib/constants";
+import { requireAuth } from "@/lib/auth-utils";
 import { DashboardClient } from "./dashboard-client";
 
 export default async function DashboardPage() {
+  await requireAuth();
   const supabase = await createClient();
   const month = currentMonthStr();
 

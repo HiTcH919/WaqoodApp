@@ -1,9 +1,11 @@
+import { requireAuth } from "@/lib/auth-utils";
 import { getVehicles } from "@/lib/actions/vehicles";
 import { getDepartments } from "@/lib/actions/departments";
 import { createClient } from "@/lib/supabase/server";
 import { VehiclesClient } from "./vehicles-client";
 
 export default async function VehiclesPage() {
+  await requireAuth();
   const [vehicles, departments] = await Promise.all([
     getVehicles(),
     getDepartments(),
@@ -23,7 +25,7 @@ export default async function VehiclesPage() {
 
   return (
     <VehiclesClient
-      vehicles={vehicles}
+      initialVehicles={vehicles}
       departments={departments}
       vehicleTypes={vehicleTypes ?? []}
       fuelTypes={fuelTypes ?? []}

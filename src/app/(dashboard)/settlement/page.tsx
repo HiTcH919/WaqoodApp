@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { currentMonthStr } from "@/lib/constants";
+import { requireAuth } from "@/lib/auth-utils";
 import { getSettings } from "@/lib/actions/settings";
 import { SettlementClient } from "./settlement-client";
 
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default async function SettlementPage({ searchParams }: Props) {
+  await requireAuth();
   const { month, department_id } = await searchParams;
   const selectedMonth = month || currentMonthStr();
   const prevMonthStr = prevMonth(selectedMonth);

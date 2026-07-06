@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { currentMonthStr } from "@/lib/constants";
+import { requireAuth } from "@/lib/auth-utils";
 import { CouponsClient } from "./coupons-client";
 
 export default async function CouponsPage() {
+  await requireAuth();
   const supabase = await createClient();
   const month = currentMonthStr();
 
@@ -16,7 +18,7 @@ export default async function CouponsPage() {
     <CouponsClient
       vehicles={vehiclesRes.data || []}
       fuelTypes={fuelTypesRes.data || []}
-      batches={batchesRes.data || []}
+      initialBatches={batchesRes.data || []}
       month={month}
     />
   );

@@ -3,5 +3,5 @@ import { DepartmentsClient } from "./departments-client";
 
 export default async function DepartmentsPage() {
   const departments = await getDepartments();
-  return <DepartmentsClient departments={departments} />;
+  return     <DepartmentsClient initialDepartments={departments} />;
 }

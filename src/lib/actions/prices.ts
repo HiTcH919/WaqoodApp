@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth-utils";
+import { SetPriceSchema } from "@/lib/schemas";
+import type { z } from "zod";
 
 export async function getPrices() {
   const supabase = await createClient();
@@ -33,33 +35,30 @@ export async function getPrices() {
   return prices;
 }
 
-export async function setPrice(formData: FormData) {
+export async function setPrice(input: z.infer<typeof SetPriceSchema>) {
+  const validated = SetPriceSchema.parse(input);
   const supabase = await createClient();
   await requireAuth();
-  const fuelTypeId = formData.get("fuel_type_id") as string;
-  const price = formData.get("price") as string;
-  if (!fuelTypeId || !price || isNaN(parseFloat(price)) || parseFloat(price) <= 0) throw new Error("بيانات غير صالحة");
 
   const today = new Date().toISOString().split("T")[0];
-  const numericPrice = parseFloat(price);
 
   const { data: existing } = await supabase
     .from("fuel_prices")
     .select("id")
-    .eq("fuel_type_id", fuelTypeId)
+    .eq("fuel_type_id", validated.fuel_type_id)
     .eq("effective_from", today)
     .maybeSingle();
 
   if (existing) {
     const { error } = await supabase
       .from("fuel_prices")
-      .update({ price: numericPrice })
+      .update({ price: validated.price })
       .eq("id", existing.id);
     if (error) throw new Error(error.message);
   } else {
     const { error } = await supabase.from("fuel_prices").insert({
-      fuel_type_id: fuelTypeId,
-      price: numericPrice,
+      fuel_type_id: validated.fuel_type_id,
+      price: validated.price,
       effective_from: today,
     });
     if (error) throw new Error(error.message);

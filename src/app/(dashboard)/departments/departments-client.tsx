@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Department } from "@/types/database";
-import { createDepartment, updateDepartment, deleteDepartment } from "@/lib/actions/departments";
+import { getDepartments, createDepartment, updateDepartment, deleteDepartment } from "@/lib/actions/departments";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,11 +11,16 @@ import { AlertDialog } from "@/components/ui/alert-dialog";
 import { Plus, Pencil, Trash2, Building2 } from "lucide-react";
 
 interface Props {
-  departments: Department[];
+  initialDepartments: Department[];
 }
 
-export function DepartmentsClient({ departments: initial }: Props) {
-  const [departments, setDepartments] = useState(initial);
+export function DepartmentsClient({ initialDepartments }: Props) {
+  const queryClient = useQueryClient();
+  const { data: departments } = useQuery({
+    queryKey: ["departments"],
+    queryFn: getDepartments,
+    initialData: initialDepartments,
+  });
   const [editing, setEditing] = useState<Department | null>(null);
   const [deleting, setDeleting] = useState<Department | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -22,32 +28,24 @@ export function DepartmentsClient({ departments: initial }: Props) {
   const [editName, setEditName] = useState("");
 
   const handleAdd = async () => {
-    const fd = new FormData();
-    fd.set("name", newName);
-    await createDepartment(fd);
+    await createDepartment({ name: newName });
     setShowAdd(false);
     setNewName("");
-    const { getDepartments } = await import("@/lib/actions/departments");
-    setDepartments(await getDepartments());
+    queryClient.invalidateQueries({ queryKey: ["departments"] });
   };
 
   const handleEdit = async () => {
     if (!editing) return;
-    const fd = new FormData();
-    fd.set("id", editing.id);
-    fd.set("name", editName);
-    await updateDepartment(fd);
+    await updateDepartment({ id: editing.id, name: editName });
     setEditing(null);
-    const { getDepartments } = await import("@/lib/actions/departments");
-    setDepartments(await getDepartments());
+    queryClient.invalidateQueries({ queryKey: ["departments"] });
   };
 
   const handleDelete = async () => {
     if (!deleting) return;
     await deleteDepartment(deleting.id);
     setDeleting(null);
-    const { getDepartments } = await import("@/lib/actions/departments");
-    setDepartments(await getDepartments());
+    queryClient.invalidateQueries({ queryKey: ["departments"] });
   };
 
   return (

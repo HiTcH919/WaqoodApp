@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth-utils";
+import { VehicleSchema, UpdateVehicleSchema } from "@/lib/schemas";
 
 export interface VehicleWithRelations {
   id: string;
@@ -32,17 +33,10 @@ export async function getVehicles() {
   return data as unknown as VehicleWithRelations[];
 }
 
-export async function createVehicle(formData: FormData) {
+export async function createVehicle(input: { name: string; plate: string; department_id: string; vehicle_type_id?: string | null; fuel_type_id?: string | null }) {
+  const validated = VehicleSchema.parse(input);
   const supabase = await createClient();
   await requireAuth();
-  const name = formData.get("name") as string;
-  const plate = formData.get("plate") as string;
-  const department_id = formData.get("department_id") as string;
-  const vehicle_type_id = formData.get("vehicle_type_id") as string;
-  const fuel_type_id = formData.get("fuel_type_id") as string;
-
-  if (!plate?.trim() || plate.trim().length > 50) throw new Error("رقم اللوحة مطلوب");
-  if (!department_id) throw new Error("القسم مطلوب");
 
   const { data: org } = await supabase
     .from("organizations")
@@ -53,39 +47,31 @@ export async function createVehicle(formData: FormData) {
 
   const { error } = await supabase.from("vehicles").insert({
     organization_id: org.id,
-    department_id,
-    name: name?.trim() || plate.trim(),
-    plate: plate.trim(),
-    vehicle_type_id: vehicle_type_id || null,
-    fuel_type_id: fuel_type_id || null,
+    department_id: validated.department_id,
+    name: validated.name?.trim() || validated.plate.trim(),
+    plate: validated.plate.trim(),
+    vehicle_type_id: validated.vehicle_type_id || null,
+    fuel_type_id: validated.fuel_type_id || null,
   });
   if (error) throw new Error(error.message);
   revalidatePath("/vehicles");
 }
 
-export async function updateVehicle(formData: FormData) {
+export async function updateVehicle(input: { id: string; name: string; plate: string; department_id: string; vehicle_type_id?: string | null; fuel_type_id?: string | null }) {
+  const validated = UpdateVehicleSchema.parse({ ...input });
   const supabase = await createClient();
   await requireAuth();
-  const id = formData.get("id") as string;
-  const name = formData.get("name") as string;
-  const plate = formData.get("plate") as string;
-  const department_id = formData.get("department_id") as string;
-  const vehicle_type_id = formData.get("vehicle_type_id") as string;
-  const fuel_type_id = formData.get("fuel_type_id") as string;
-
-  if (!id || !plate?.trim() || plate.trim().length > 50) throw new Error("بيانات غير صالحة");
-  if (!department_id) throw new Error("القسم مطلوب");
 
   const { error } = await supabase
     .from("vehicles")
     .update({
-      name: name?.trim() || plate.trim(),
-      plate: plate.trim(),
-      department_id,
-      vehicle_type_id: vehicle_type_id || null,
-      fuel_type_id: fuel_type_id || null,
+      name: validated.name?.trim() || validated.plate.trim(),
+      plate: validated.plate.trim(),
+      department_id: validated.department_id,
+      vehicle_type_id: validated.vehicle_type_id || null,
+      fuel_type_id: validated.fuel_type_id || null,
     })
-    .eq("id", id);
+    .eq("id", validated.id);
   if (error) throw new Error(error.message);
   revalidatePath("/vehicles");
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { FuelType, FuelPrice } from "@/types/database";
-import { setPrice } from "@/lib/actions/prices";
+import { getPrices, setPrice } from "@/lib/actions/prices";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,24 +15,25 @@ interface PriceItem {
 }
 
 interface Props {
-  prices: PriceItem[];
+  initialPrices: PriceItem[];
 }
 
-export function PricesClient({ prices: initial }: Props) {
-  const [prices, setPrices] = useState(initial);
+export function PricesClient({ initialPrices }: Props) {
+  const queryClient = useQueryClient();
+  const { data: prices } = useQuery({
+    queryKey: ["prices"],
+    queryFn: getPrices,
+    initialData: initialPrices,
+  });
   const [selected, setSelected] = useState<PriceItem | null>(null);
   const [newPrice, setNewPrice] = useState("");
 
   const handleUpdate = async () => {
     if (!selected || !newPrice) return;
-    const fd = new FormData();
-    fd.set("fuel_type_id", selected.fuel_type.id);
-    fd.set("price", newPrice);
-    await setPrice(fd);
+    await setPrice({ fuel_type_id: selected.fuel_type.id, price: Number(newPrice) });
     setSelected(null);
     setNewPrice("");
-    const { getPrices } = await import("@/lib/actions/prices");
-    setPrices(await getPrices());
+    queryClient.invalidateQueries({ queryKey: ["prices"] });
   };
 
   const formatDate = (d: string) =>

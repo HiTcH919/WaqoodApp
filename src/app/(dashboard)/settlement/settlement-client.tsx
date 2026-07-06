@@ -79,16 +79,14 @@ export function SettlementClient({ departments, rows: initialRows, selectedMonth
   const saveRow = async (row: RowData) => {
     setSaving((prev) => new Set(prev).add(row.vehicle_id));
     try {
-      const fd = new FormData();
-      fd.set("vehicle_id", row.vehicle_id);
-      fd.set("month", month);
-      fd.set("start_reading", String(row.current_start ?? 0));
-      fd.set("end_reading", String(row.current_end ?? 0));
       const autoDist = autoDistance(row.current_start, row.current_end);
-      if (row.distance !== null && row.distance !== autoDist) {
-        fd.set("distance", String(row.distance));
-      }
-      await upsertOdometerReading(fd);
+      await upsertOdometerReading({
+        vehicle_id: row.vehicle_id,
+        month,
+        start_reading: row.current_start ?? 0,
+        end_reading: row.current_end ?? 0,
+        distance: (row.distance !== null && row.distance !== autoDist) ? row.distance : null,
+      });
       setDirty((prev) => { const next = new Set(prev); next.delete(row.vehicle_id); return next; });
     } catch {
       // silent

@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { FuelType, VehicleType } from "@/types/database";
 import {
+  getFuelTypes,
+  getVehicleTypes,
+  getSettings as getSettingsAction,
   createFuelType,
   updateFuelType,
   deleteFuelType,
@@ -42,9 +46,25 @@ interface VtForm {
 const emptyVtForm: VtForm = { category: "", name: "" };
 
 export function SettingsClient({ fuelTypes: initialFt, vehicleTypes: initialVt, settings: initialSettings }: Props) {
-  const [fuelTypes, setFuelTypes] = useState(initialFt);
-  const [vehicleTypes, setVehicleTypes] = useState(initialVt);
-  const [settings, setSettings] = useState(initialSettings);
+  const queryClient = useQueryClient();
+
+  const { data: fuelTypes } = useQuery({
+    queryKey: ["fuelTypes"],
+    queryFn: getFuelTypes,
+    initialData: initialFt,
+  });
+
+  const { data: vehicleTypes } = useQuery({
+    queryKey: ["vehicleTypes"],
+    queryFn: getVehicleTypes,
+    initialData: initialVt,
+  });
+
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: getSettingsAction,
+    initialData: initialSettings,
+  });
 
   // Fuel type state
   const [showFuelAdd, setShowFuelAdd] = useState(false);
@@ -66,28 +86,22 @@ export function SettingsClient({ fuelTypes: initialFt, vehicleTypes: initialVt, 
   const [reportFooter, setReportFooter] = useState(initialSettings.report_footer ?? "");
 
   // ── Helpers ──
-  const reloadFuel = async () => {
-    const { getFuelTypes } = await import("@/lib/actions/settings");
-    setFuelTypes(await getFuelTypes());
+  const reloadFuel = () => {
+    queryClient.invalidateQueries({ queryKey: ["fuelTypes"] });
   };
-  const reloadVt = async () => {
-    const { getVehicleTypes } = await import("@/lib/actions/settings");
-    setVehicleTypes(await getVehicleTypes());
+  const reloadVt = () => {
+    queryClient.invalidateQueries({ queryKey: ["vehicleTypes"] });
   };
 
   // ── Fuel Type Handlers ──
   const handleFuelAdd = async () => {
     setFuelError("");
     if (!fuelForm.name.trim() || !fuelForm.category) { setFuelError("يرجى تعبئة جميع الحقول المطلوبة"); return; }
-    const fd = new FormData();
-    fd.set("name", fuelForm.name);
-    fd.set("category", fuelForm.category);
-    fd.set("default_litres", fuelForm.default_litres);
     try {
-      await createFuelType(fd);
+      await createFuelType({ name: fuelForm.name, category: fuelForm.category as "بنزين" | "سولار", default_litres: Number(fuelForm.default_litres) });
       setShowFuelAdd(false);
       setFuelForm(emptyFuelForm);
-      await reloadFuel();
+      reloadFuel();
     } catch (e: any) { setFuelError(e.message); }
   };
 
@@ -95,16 +109,11 @@ export function SettingsClient({ fuelTypes: initialFt, vehicleTypes: initialVt, 
     if (!editingFuel) return;
     setFuelError("");
     if (!fuelForm.name.trim() || !fuelForm.category) { setFuelError("يرجى تعبئة جميع الحقول المطلوبة"); return; }
-    const fd = new FormData();
-    fd.set("id", editingFuel.id);
-    fd.set("name", fuelForm.name);
-    fd.set("category", fuelForm.category);
-    fd.set("default_litres", fuelForm.default_litres);
     try {
-      await updateFuelType(fd);
+      await updateFuelType({ id: editingFuel.id, name: fuelForm.name, category: fuelForm.category as "بنزين" | "سولار", default_litres: Number(fuelForm.default_litres) });
       setEditingFuel(null);
       setFuelForm(emptyFuelForm);
-      await reloadFuel();
+      reloadFuel();
     } catch (e: any) { setFuelError(e.message); }
   };
 
@@ -113,7 +122,7 @@ export function SettingsClient({ fuelTypes: initialFt, vehicleTypes: initialVt, 
     try {
       await deleteFuelType(deletingFuel.id);
       setDeletingFuel(null);
-      await reloadFuel();
+      reloadFuel();
     } catch (e: any) { setFuelError(e.message); }
   };
 
@@ -127,14 +136,11 @@ export function SettingsClient({ fuelTypes: initialFt, vehicleTypes: initialVt, 
   const handleVtAdd = async () => {
     setVtError("");
     if (!vtForm.category.trim() || !vtForm.name.trim()) { setVtError("يرجى تعبئة جميع الحقول المطلوبة"); return; }
-    const fd = new FormData();
-    fd.set("category", vtForm.category);
-    fd.set("name", vtForm.name);
     try {
-      await createVehicleType(fd);
+      await createVehicleType({ category: vtForm.category, name: vtForm.name });
       setShowVtAdd(false);
       setVtForm(emptyVtForm);
-      await reloadVt();
+      reloadVt();
     } catch (e: any) { setVtError(e.message); }
   };
 
@@ -142,15 +148,11 @@ export function SettingsClient({ fuelTypes: initialFt, vehicleTypes: initialVt, 
     if (!editingVt) return;
     setVtError("");
     if (!vtForm.category.trim() || !vtForm.name.trim()) { setVtError("يرجى تعبئة جميع الحقول المطلوبة"); return; }
-    const fd = new FormData();
-    fd.set("id", editingVt.id);
-    fd.set("category", vtForm.category);
-    fd.set("name", vtForm.name);
     try {
-      await updateVehicleType(fd);
+      await updateVehicleType({ id: editingVt.id, category: vtForm.category, name: vtForm.name });
       setEditingVt(null);
       setVtForm(emptyVtForm);
-      await reloadVt();
+      reloadVt();
     } catch (e: any) { setVtError(e.message); }
   };
 
@@ -159,7 +161,7 @@ export function SettingsClient({ fuelTypes: initialFt, vehicleTypes: initialVt, 
     try {
       await deleteVehicleType(deletingVt.id);
       setDeletingVt(null);
-      await reloadVt();
+      reloadVt();
     } catch (e: any) { setVtError(e.message); }
   };
 
@@ -174,7 +176,7 @@ export function SettingsClient({ fuelTypes: initialFt, vehicleTypes: initialVt, 
     setSavingKey(key);
     try {
       await updateSetting(key, value);
-      setSettings((prev) => ({ ...prev, [key]: value }));
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
     } catch (e: any) {
       console.error(e);
     } finally {

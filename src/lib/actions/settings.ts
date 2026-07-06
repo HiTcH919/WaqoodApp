@@ -3,8 +3,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth-utils";
+import {
+  FuelTypeSchema,
+  UpdateFuelTypeSchema,
+  VehicleTypeSchema,
+  UpdateVehicleTypeSchema,
+} from "@/lib/schemas";
+import type { z } from "zod";
 
-const ALLOWED_SETTINGS_KEYS = ["company_name", "report_footer"];
+const ALLOWED_SETTINGS_KEYS = ["company_name", "report_footer"] as const;
+type SettingsKey = (typeof ALLOWED_SETTINGS_KEYS)[number];
 
 // ───────────────────────────────
 // Fuel Types
@@ -20,32 +28,35 @@ export async function getFuelTypes() {
   return data ?? [];
 }
 
-export async function createFuelType(formData: FormData) {
+export async function createFuelType(input: z.infer<typeof FuelTypeSchema>) {
+  const validated = FuelTypeSchema.parse(input);
   const supabase = await createClient();
   await requireAuth();
-  const name = formData.get("name") as string;
-  const category = formData.get("category") as string;
-  const default_litres = parseFloat(formData.get("default_litres") as string) || 20;
 
   const { error } = await supabase
     .from("fuel_types")
-    .insert({ name, category, default_litres });
+    .insert({
+      name: validated.name,
+      category: validated.category,
+      default_litres: validated.default_litres,
+    });
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
 }
 
-export async function updateFuelType(formData: FormData) {
+export async function updateFuelType(input: z.infer<typeof UpdateFuelTypeSchema>) {
+  const validated = UpdateFuelTypeSchema.parse(input);
   const supabase = await createClient();
   await requireAuth();
-  const id = formData.get("id") as string;
-  const name = formData.get("name") as string;
-  const category = formData.get("category") as string;
-  const default_litres = parseFloat(formData.get("default_litres") as string) || 20;
 
   const { error } = await supabase
     .from("fuel_types")
-    .update({ name, category, default_litres })
-    .eq("id", id);
+    .update({
+      name: validated.name,
+      category: validated.category,
+      default_litres: validated.default_litres,
+    })
+    .eq("id", validated.id);
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
 }
@@ -83,30 +94,27 @@ export async function getVehicleTypes() {
   return data ?? [];
 }
 
-export async function createVehicleType(formData: FormData) {
+export async function createVehicleType(input: z.infer<typeof VehicleTypeSchema>) {
+  const validated = VehicleTypeSchema.parse(input);
   const supabase = await createClient();
   await requireAuth();
-  const category = formData.get("category") as string;
-  const name = formData.get("name") as string;
 
   const { error } = await supabase
     .from("vehicle_types")
-    .insert({ category, name });
+    .insert({ category: validated.category, name: validated.name });
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
 }
 
-export async function updateVehicleType(formData: FormData) {
+export async function updateVehicleType(input: z.infer<typeof UpdateVehicleTypeSchema>) {
+  const validated = UpdateVehicleTypeSchema.parse(input);
   const supabase = await createClient();
   await requireAuth();
-  const id = formData.get("id") as string;
-  const category = formData.get("category") as string;
-  const name = formData.get("name") as string;
 
   const { error } = await supabase
     .from("vehicle_types")
-    .update({ category, name })
-    .eq("id", id);
+    .update({ category: validated.category, name: validated.name })
+    .eq("id", validated.id);
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
 }
@@ -136,9 +144,7 @@ export async function deleteVehicleType(id: string) {
 export async function getSettings() {
   const supabase = await createClient();
   await requireAuth();
-  const { data } = await supabase
-    .from("settings")
-    .select("*");
+  const { data } = await supabase.from("settings").select("*");
   const map: Record<string, string> = {};
   for (const s of data ?? []) {
     map[s.key] = s.value;
@@ -149,7 +155,8 @@ export async function getSettings() {
 export async function updateSetting(key: string, value: string) {
   const supabase = await createClient();
   await requireAuth();
-  if (!ALLOWED_SETTINGS_KEYS.includes(key)) throw new Error("مفتاح الإعداد غير مسموح به");
+  if (!ALLOWED_SETTINGS_KEYS.includes(key as SettingsKey))
+    throw new Error("مفتاح الإعداد غير مسموح به");
   if (!value?.trim() || value.trim().length > 500) throw new Error("القيمة غير صالحة");
   const { error } = await supabase
     .from("settings")

@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth-utils";
+import { DeductionSchema } from "@/lib/schemas";
+import type { z } from "zod";
 
 export interface DeductionWithRelations {
   id: string;
@@ -35,18 +37,10 @@ export async function getDeductions(month?: string) {
   return data as unknown as DeductionWithRelations[];
 }
 
-export async function createDeduction(formData: FormData) {
+export async function createDeduction(input: z.infer<typeof DeductionSchema>) {
+  const validated = DeductionSchema.parse(input);
   const supabase = await createClient();
-  await requireAuth();
-  const vehicle_id = formData.get("vehicle_id") as string;
-  const department_id = formData.get("department_id") as string;
-  const amount = formData.get("amount") as string;
-  const reason = formData.get("reason") as string;
-  const month = formData.get("month") as string;
-
-  if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) throw new Error("المبلغ غير صالح");
-  if (!reason?.trim() || reason.trim().length > 500) throw new Error("السبب مطلوب");
-  if (!month || !/^\d{4}-\d{2}$/.test(month)) throw new Error("الشهر غير صالح");
+  const user = await requireAuth();
 
   const { data: org } = await supabase
     .from("organizations")
@@ -55,17 +49,14 @@ export async function createDeduction(formData: FormData) {
     .single();
   if (!org) throw new Error("لا توجد منظمة مرتبطة");
 
-  const { data: user } = await supabase.auth.getUser();
-  if (!user.user) throw new Error("المستخدم غير مسجل");
-
   const { error } = await supabase.from("deductions").insert({
     organization_id: org.id,
-    vehicle_id: vehicle_id || null,
-    department_id: department_id || null,
-    amount: Number(amount),
-    reason: reason.trim(),
-    month,
-    created_by: user.user.id,
+    vehicle_id: validated.vehicle_id || null,
+    department_id: validated.department_id || null,
+    amount: validated.amount,
+    reason: validated.reason.trim(),
+    month: validated.month,
+    created_by: user.id,
   });
   if (error) throw new Error(error.message);
   revalidatePath("/deductions");
